@@ -1,12 +1,14 @@
 #pragma once
 
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 
+using namespace std;
+
 class ReadData {
 public:
-  void readFile(std::string &message, const std::string &filename);
+  void readFile(string &message, const string &filename);
 };
