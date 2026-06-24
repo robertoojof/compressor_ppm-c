@@ -14,7 +14,7 @@ public:
 
     string message;
     ReadData data;
-    data.readtxt(message, filename.c_str());
+    data.readFile(message, filename.c_str());
 
     // ... (Insira aqui toda a sua lógica original de compressão, timers, e
     // prints)
