@@ -19,12 +19,12 @@ void PatriciaTree::liberarMemoria(PatriciaNode *no) {
 }
 
 void PatriciaTree::imprimirNo(PatriciaNode *no,
-                              const std::string &contextoAcum) const {}
+                              const string &contextoAcum) const {}
 
-void PatriciaTree::inserirContexto(const std::string &contexto,
+void PatriciaTree::inserirContexto(const string &contexto,
                                    unsigned char simbolo) {
   PatriciaNode *atual = raiz;
-  std::string restante = contexto; // contexto ainda não "consumido"
+  string restante = contexto; // contexto ainda não "consumido"
 
   while (!restante.empty()) {
     unsigned char c = static_cast<unsigned char>(restante[0]);
@@ -41,7 +41,7 @@ void PatriciaTree::inserirContexto(const std::string &contexto,
     } else { // caso exista
 
       PatriciaNode *prox = atual->filhos[c];
-      const std::string &pref = prox->prefixo;
+      const string &pref = prox->prefixo;
 
       size_t i = 0;
       while (i < pref.size() && i < restante.size() && pref[i] == restante[i])
@@ -79,9 +79,9 @@ void PatriciaTree::inserirContexto(const std::string &contexto,
   atual->freq[simbolo]++;
 }
 
-PatriciaNode *PatriciaTree::buscarContexto(const std::string &contexto) const {
+PatriciaNode *PatriciaTree::buscarContexto(const string &contexto) const {
   PatriciaNode *atual = raiz;
-  std::string restante = contexto;
+  string restante = contexto;
 
   while (!restante.empty()) {
     unsigned char c = static_cast<unsigned char>(restante[0]);
@@ -91,7 +91,7 @@ PatriciaNode *PatriciaTree::buscarContexto(const std::string &contexto) const {
     }
 
     PatriciaNode *prox = atual->filhos[c];
-    const std::string &pref = prox->prefixo;
+    const string &pref = prox->prefixo;
 
     size_t i = 0;
     while (i < pref.size() && i < restante.size() && pref[i] == restante[i])
