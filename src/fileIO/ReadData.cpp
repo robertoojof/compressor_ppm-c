@@ -1,4 +1,5 @@
 #include "ReadData.hpp"
+#include "../config/config.hpp"
 
 using namespace std;
 
@@ -19,6 +20,7 @@ void ReadData::readFile(string &message, const string &filename) {
     file.close();
     cout << "Arquivo '" << filename << "' lido com sucesso (" << fileSize
          << " bytes)" << endl;
+    cout << "KMAX: " << KMAX << endl;
   } else {
     cerr << "Erro: Não foi possível abrir o arquivo '" << filename << "'"
          << endl;
