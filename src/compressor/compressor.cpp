@@ -34,7 +34,7 @@ void Compressor::encoder_pure(string &message,
 
     // variáveis para limitar o tamanho do contexto
     int hsize = static_cast<int>(historico.size()); // tamanho do historico
-    int maxLen = std::min(kmax, hsize); // tamanho maximo do contexto atual
+    int maxLen = min(kmax, hsize); // tamanho maximo do contexto atual
 
     // tentar contextos de KMAX até 0 (percorre os contextos em ordem
     // decrescente)
@@ -43,7 +43,7 @@ void Compressor::encoder_pure(string &message,
     // tentar contextos de KMAX até 0 (percorre os contextos em ordem
     // decrescente)
     for (int len = maxLen; len >= 0; len--) {
-      std::string contexto;
+      string contexto;
       contexto.reserve(len);
       for (int j = hsize - len; j < hsize; j++) {
         contexto.push_back(static_cast<char>(historico[j]));
@@ -54,7 +54,7 @@ void Compressor::encoder_pure(string &message,
 
       // se contexto foi encontrado
       if (no != nullptr) {
-        std::vector<std::uint32_t> freqs;
+        vector<uint32_t> freqs;
         if (i == 0) {
           freqs.resize(ALFABETO, 0);
           freqs.push_back(1);
@@ -77,15 +77,15 @@ void Compressor::encoder_pure(string &message,
 
         // se símbolo está no contexto
         if (no->freq[simbolo] > 0) {
-          // std::cout << "Codificando simbolo no contexto K=" << len <<
-          // std::endl; codifica o símbolo
+          // cout << "Codificando simbolo no contexto K=" << len <<
+          // endl; codifica o símbolo
           // *** Informação se símbolo está no contexto ***
           double p = static_cast<double>(freq_table.get(simbolo)) /
                      freq_table.getTotal();
 
-          /* soma_informacao += -std::log2(p); */
+          /* soma_informacao += -log2(p); */
 
-          encoder.write(freq_table, static_cast<std::uint32_t>(simbolo));
+          encoder.write(freq_table, static_cast<uint32_t>(simbolo));
           codificado = true;
           break;
         } else {
@@ -93,7 +93,7 @@ void Compressor::encoder_pure(string &message,
           double pEsc = static_cast<double>(freq_table.get(ESC_SYMBOL)) /
                         freq_table.getTotal();
 
-          /* soma_informacao += -std::log2(pEsc); */
+          /* soma_informacao += -log2(pEsc); */
 
           encoder.write(freq_table, ESC_SYMBOL);
 
@@ -110,7 +110,7 @@ void Compressor::encoder_pure(string &message,
     // se não foi possível codificar, usa equiprobabilidades
     if (!codificado) {
       // Cria equiprobabilidade apenas para símbolos não vistos
-      std::vector<std::uint32_t> freqs_equal(ALFABETO, 0);
+      vector<uint32_t> freqs_equal(ALFABETO, 0);
       int simbolosNaoVistos = 0;
 
       for (int s = 0; s < ALFABETO; s++) {
@@ -126,16 +126,16 @@ void Compressor::encoder_pure(string &message,
       double p =
           static_cast<double>(freq_table.get(simbolo)) / freq_table.getTotal();
 
-      /* soma_informacao += -std::log2(p); */
+      /* soma_informacao += -log2(p); */
 
-      encoder.write(freq_table, static_cast<std::uint32_t>(simbolo));
+      encoder.write(freq_table, static_cast<uint32_t>(simbolo));
     }
 
     simbolosVistos.insert(simbolo);
 
     // atualizar a árvore
     for (int len = 0; len <= maxLen; len++) {
-      std::string contexto;
+      string contexto;
       contexto.reserve(len);
       for (int j = hsize - len; j < hsize; j++) {
         contexto.push_back(static_cast<char>(historico[j]));
@@ -162,10 +162,10 @@ void Compressor::encode() {}
 void Compressor::decode_pure(const string &compressed_filename,
                              const string &output_filename) {
   PatriciaTree arvore;
-  std::vector<unsigned char> historico;
-  std::set<unsigned char> simbolosVistos;
+  vector<unsigned char> historico;
+  set<unsigned char> simbolosVistos;
 
-  std::ifstream input_file(compressed_filename, std::ios::binary);
+  ifstream input_file(compressed_filename, ios::binary);
 
   // Lê cabeçalho básico: K (1 byte) + tamanho original (4 bytes)
   uint8_t k_byte;
@@ -199,11 +199,11 @@ void Compressor::decode_pure(const string &compressed_filename,
 
   BitInputStream bit_input(input_file);
   ArithmeticDecoder decoder(32, bit_input);
-  std::string decoded_message;
+  string decoded_message;
   int num_resets = 0;
 
   // Tabela para flag de reset (só usada se formato_novo)
-  std::vector<std::uint32_t> freqs_flag(2, 1);
+  vector<uint32_t> freqs_flag(2, 1);
   SimpleFrequencyTable flag_table(freqs_flag);
 
   for (uint32_t i = 0; i < original_size; i++) {
@@ -212,7 +212,7 @@ void Compressor::decode_pure(const string &compressed_filename,
     // novo)
     // if (formato_novo && i > 0 && i % window_size == 0 && i >= 2 *
     // window_size) {
-    //   std::uint32_t flag = decoder.read(flag_table);
+    //   uint32_t flag = decoder.read(flag_table);
 
     //   if (flag == 1) // RESET
     //   {
@@ -224,9 +224,9 @@ void Compressor::decode_pure(const string &compressed_filename,
     //   }
     // }
 
-    std::set<unsigned char> simbolosExcluidos;
+    set<unsigned char> simbolosExcluidos;
     int hsize = static_cast<int>(historico.size());
-    int maxLen = std::min(kmax, hsize);
+    int maxLen = min(kmax, hsize);
 
     // Verifica limite de memória (mesma lógica do codificador)
     // if (arvore.getNumNos() > MAX_NODES) {
@@ -242,7 +242,7 @@ void Compressor::decode_pure(const string &compressed_filename,
     bool decodificado = false;
 
     for (int len = maxLen; len >= 0; len--) {
-      std::string contexto;
+      string contexto;
       contexto.reserve(len);
       for (int j = hsize - len; j < hsize; j++)
         contexto.push_back(static_cast<char>(historico[j]));
@@ -250,7 +250,7 @@ void Compressor::decode_pure(const string &compressed_filename,
       PatriciaNode *no = arvore.buscarContexto(contexto);
 
       if (no != nullptr) {
-        std::vector<std::uint32_t> freqs;
+        vector<uint32_t> freqs;
         if (simbolosVistos.empty()) {
           freqs.resize(ALFABETO, 0);
           freqs.push_back(1);
@@ -266,7 +266,7 @@ void Compressor::decode_pure(const string &compressed_filename,
         }
 
         SimpleFrequencyTable freq_table(freqs);
-        std::uint32_t decoded_symbol = decoder.read(freq_table);
+        uint32_t decoded_symbol = decoder.read(freq_table);
 
         if (decoded_symbol == ESC_SYMBOL) {
           for (int s = 0; s < ALFABETO; s++) {
@@ -283,14 +283,14 @@ void Compressor::decode_pure(const string &compressed_filename,
     }
 
     if (!decodificado) {
-      std::vector<std::uint32_t> freqs_equal(ALFABETO, 0);
+      vector<uint32_t> freqs_equal(ALFABETO, 0);
       for (int s = 0; s < ALFABETO; s++) {
         if (simbolosVistos.find(static_cast<unsigned char>(s)) ==
             simbolosVistos.end())
           freqs_equal[s] = 1;
       }
       SimpleFrequencyTable freq_table(freqs_equal);
-      std::uint32_t decoded_symbol = decoder.read(freq_table);
+      uint32_t decoded_symbol = decoder.read(freq_table);
       simbolo = static_cast<unsigned char>(decoded_symbol);
     }
 
@@ -298,7 +298,7 @@ void Compressor::decode_pure(const string &compressed_filename,
     decoded_message += static_cast<char>(simbolo);
 
     for (int len = 0; len <= maxLen; len++) {
-      std::string contexto;
+      string contexto;
       contexto.reserve(len);
       for (int j = hsize - len; j < hsize; j++)
         contexto.push_back(static_cast<char>(historico[j]));
@@ -312,7 +312,7 @@ void Compressor::decode_pure(const string &compressed_filename,
 
   input_file.close();
 
-  std::ofstream output_file(output_filename, std::ios::binary);
+  ofstream output_file(output_filename, ios::binary);
   output_file.write(decoded_message.c_str(), decoded_message.size());
   output_file.close();
   // delete arvore;
