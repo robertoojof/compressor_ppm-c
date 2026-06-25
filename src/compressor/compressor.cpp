@@ -60,6 +60,8 @@ void Compressor::encoder_pure(string &message,
           freqs.push_back(1);
         } else {
           freqs = no->freq;
+          if (no->distintos < ALFABETO)
+            freqs.push_back(no->distintos);
         }
 
         // remove símbolos que foram excluídos em contextos maiores
@@ -68,11 +70,6 @@ void Compressor::encoder_pure(string &message,
             freqs[s] = 0;
           }
         }
-
-        // se há símbolos não vistos, inclui o ESC
-        if (no->distintos < ALFABETO)
-          freqs.push_back(no->distintos);       // frequencia de ESC equivale ao
-                                                // número de símbolos existentes
         SimpleFrequencyTable freq_table(freqs); // cria atual frequency table
 
         // se símbolo está no contexto
