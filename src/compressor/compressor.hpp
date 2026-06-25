@@ -19,6 +19,6 @@ private:
 
 public:
   void encode();
-  void decode_reset(const string &compressed_filename,
+  void decode_pure(const string &compressed_filename,
                     const string &output_filename);
 };
