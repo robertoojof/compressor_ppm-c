@@ -3,12 +3,12 @@ CXX      = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -Isrc/ppm-c  # -I para encontrar headers
 
 # Diretórios
-SRC_DIR = src/ppm-c
+SRC_DIR = src
 OBJ_DIR = obj
 
 # Encontra automaticamente todos os .cpp em subpastas
 SRCS = $(shell find $(SRC_DIR) -name '*.cpp')
-# Converte src/ppm-c/foo/bar.cpp -> obj/foo/bar.o
+# Converte src/foo/bar.cpp -> obj/foo/bar.o
 OBJS = $(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRCS))
 
 # Executável final

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ArithmeticCoder.hpp"
-#include "PatriciaTree.hpp"
+#include "../ppm-c/arithmetic/ArithmeticCoder.hpp"
+#include "../ppm-c/ppm/PatriciaTree.hpp"
 
 #include <fstream>
 #include <set>
@@ -14,8 +14,8 @@ class Compressor {
 private:
   void encoder_pure(std::string &message,
                     const std::string &compressed_filename, int kmax);
-  void encoder_reset();
-  void encoder_pode();
+  // void encoder_reset();
+  // void encoder_pode();
 
 public:
   void encode();

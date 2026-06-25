@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "config/config.hpp"
+#include "../../config/config.hpp"
 
 using namespace std;
 
