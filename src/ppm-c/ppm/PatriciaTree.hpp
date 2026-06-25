@@ -19,5 +19,4 @@ public:
   PatriciaNode *buscarContexto(const string &contexto) const;
   void liberarMemoria(PatriciaNode *no);
   void inserirContexto(const string &contexto, unsigned char simbolo);
-  PatriciaNode *buscarContexto(const string &contexto) const;
 };
