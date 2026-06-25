@@ -165,7 +165,7 @@ void Compressor::decode_pure(const string &compressed_filename,
   std::vector<unsigned char> historico;
   std::set<unsigned char> simbolosVistos;
 
-  std::ifstream input_file("outfile.extensao", std::ios::binary);
+  std::ifstream input_file(compressed_filename, std::ios::binary);
 
   // Lê cabeçalho básico: K (1 byte) + tamanho original (4 bytes)
   uint8_t k_byte;
@@ -179,8 +179,8 @@ void Compressor::decode_pure(const string &compressed_filename,
   streampos pos_apos_header_basico = input_file.tellg();
 
   // Tenta ler window_size
-  uint32_t tentativa_ws;
-  input_file.read(reinterpret_cast<char *>(&tentativa_ws), sizeof(uint32_t));
+  // uint32_t tentativa_ws;
+  // input_file.read(reinterpret_cast<char *>(&tentativa_ws), sizeof(uint32_t));
 
   // Heurística: window_size válido está entre 100 e 100000
   // Valores típicos são 1000, 5000, 10000
