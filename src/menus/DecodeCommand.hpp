@@ -1,36 +1,32 @@
 #pragma once
 #include "ICommand.hpp"
 #include "../compressor/compressor.hpp"
-#include "../fileIO/ReadData.hpp"
 #include <chrono>
 #include <iostream>
 
 using namespace std;
 
-class EncodeCommand : public ICommand {
+class DecodeCommand : public ICommand {
 public:
   void execute(const vector<string> &args) override {
-    string filename = args[0];
-    cout << "Comprimindo arquivo: " << filename << "..." << endl;
-
-    string message;
-    ReadData data;
-    data.readFile(message, filename.c_str());
+    string compressed = args[0];
+    string output = args[1];
+    cout << "Descomprimindo: " << compressed << "..." << endl;
 
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    compressor.encoder_pure(message, filename + ".bin", KMAX);
+    compressor.decode_pure(compressed, output);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
-    cout << "Concluido em " << elapsed << "s -> output.bin" << endl;
+    cout << "Concluido em " << elapsed << "s -> " << output << endl;
   }
 
   size_t getExpectedArgCount() const override {
-    return 1;
+    return 2;
   }
 
   string getHelp() const override {
-    return "-encode <arquivo> : Comprime o arquivo especificado.";
+    return "-decode <arquivo_comprimido> <saida> : Descomprime o arquivo.";
   }
 };
