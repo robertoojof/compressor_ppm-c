@@ -1,4 +1,5 @@
 #include "compressor.hpp"
+#include "../fileIO/ReadData.hpp"
 
 using namespace std;
 
@@ -315,15 +316,11 @@ void Compressor::decode_pure(const string &compressed_filename,
 }
 
 void Compressor::encoder_multi(const vector<pair<string, string>> &files,
-                               const int KMAX) {
+                               const int KMAX, size_t buffer_size) {
+  (void)buffer_size; // saída já é bufferizada pelo BitOutputStream + ofstream
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
-
-  // Concatena conteúdo de todos os arquivos
-  string message;
-  for (const auto &f : files)
-    message += f.second;
 
   ofstream output_file("output.bin", ios::binary);
 
@@ -348,78 +345,81 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
   BitOutputStream bit_output(output_file);
   ArithmeticEncoder encoder(32, bit_output);
 
-  for (size_t i = 0; i < message.length(); i++) {
-    unsigned char simbolo = message[i];
-    set<unsigned char> simbolosExcluidos;
+  // Itera sobre os arquivos diretamente, sem concatenar em uma string única
+  for (const auto &f : files) {
+    for (size_t fi = 0; fi < f.second.size(); fi++) {
+      unsigned char simbolo = static_cast<unsigned char>(f.second[fi]);
+      set<unsigned char> simbolosExcluidos;
 
-    int hsize = static_cast<int>(historico.size());
-    int maxLen = min(KMAX, hsize);
-    bool codificado = false;
+      int hsize = static_cast<int>(historico.size());
+      int maxLen = min(KMAX, hsize);
+      bool codificado = false;
 
-    for (int len = maxLen; len >= 0; len--) {
-      string contexto;
-      contexto.reserve(len);
-      for (int j = hsize - len; j < hsize; j++)
-        contexto.push_back(static_cast<char>(historico[j]));
+      for (int len = maxLen; len >= 0; len--) {
+        string contexto;
+        contexto.reserve(len);
+        for (int j = hsize - len; j < hsize; j++)
+          contexto.push_back(static_cast<char>(historico[j]));
 
-      PatriciaNode *no = arvore.buscarContexto(contexto);
+        PatriciaNode *no = arvore.buscarContexto(contexto);
 
-      if (no != nullptr) {
-        vector<uint32_t> freqs;
-        if (i == 0) {
-          freqs.resize(ALFABETO, 0);
-          freqs.push_back(1);
-        } else {
-          freqs = no->freq;
-          if (no->distintos < ALFABETO)
-            freqs.push_back(no->distintos);
-        }
+        if (no != nullptr) {
+          vector<uint32_t> freqs;
+          if (simbolosVistos.empty()) {
+            freqs.resize(ALFABETO, 0);
+            freqs.push_back(1);
+          } else {
+            freqs = no->freq;
+            if (no->distintos < ALFABETO)
+              freqs.push_back(no->distintos);
+          }
 
-        for (unsigned char s : simbolosExcluidos) {
-          if (freqs[s] > 0)
-            freqs[s] = 0;
-        }
+          for (unsigned char s : simbolosExcluidos) {
+            if (freqs[s] > 0)
+              freqs[s] = 0;
+          }
 
-        SimpleFrequencyTable freq_table(freqs);
+          SimpleFrequencyTable freq_table(freqs);
 
-        if (no->freq[simbolo] > 0) {
-          encoder.write(freq_table, static_cast<uint32_t>(simbolo));
-          codificado = true;
-          break;
-        } else {
-          encoder.write(freq_table, ESC_SYMBOL);
-          for (int s = 0; s < ALFABETO; s++) {
-            if (no->freq[s] > 0)
-              simbolosExcluidos.insert(static_cast<unsigned char>(s));
+          if (no->freq[simbolo] > 0) {
+            encoder.write(freq_table, static_cast<uint32_t>(simbolo));
+            codificado = true;
+            break;
+          } else {
+            encoder.write(freq_table, ESC_SYMBOL);
+            for (int s = 0; s < ALFABETO; s++) {
+              if (no->freq[s] > 0)
+                simbolosExcluidos.insert(static_cast<unsigned char>(s));
+            }
           }
         }
       }
-    }
 
-    if (!codificado) {
-      vector<uint32_t> freqs_equal(ALFABETO, 0);
-      for (int s = 0; s < ALFABETO; s++) {
-        if (simbolosVistos.find(static_cast<unsigned char>(s)) ==
-            simbolosVistos.end())
-          freqs_equal[s] = 1;
+      if (!codificado) {
+        vector<uint32_t> freqs_equal(ALFABETO, 0);
+        for (int s = 0; s < ALFABETO; s++) {
+          if (simbolosVistos.find(static_cast<unsigned char>(s)) ==
+              simbolosVistos.end())
+            freqs_equal[s] = 1;
+        }
+        SimpleFrequencyTable freq_table(freqs_equal);
+        encoder.write(freq_table, static_cast<uint32_t>(simbolo));
       }
-      SimpleFrequencyTable freq_table(freqs_equal);
-      encoder.write(freq_table, static_cast<uint32_t>(simbolo));
+
+      simbolosVistos.insert(simbolo);
+
+      for (int len = 0; len <= maxLen; len++) {
+        string contexto;
+        contexto.reserve(len);
+        for (int j = hsize - len; j < hsize; j++)
+          contexto.push_back(static_cast<char>(historico[j]));
+        arvore.inserirContexto(contexto, simbolo);
+      }
+
+      historico.push_back(simbolo);
+      if (static_cast<int>(historico.size()) > KMAX)
+        historico.erase(historico.begin());
     }
-
-    simbolosVistos.insert(simbolo);
-
-    for (int len = 0; len <= maxLen; len++) {
-      string contexto;
-      contexto.reserve(len);
-      for (int j = hsize - len; j < hsize; j++)
-        contexto.push_back(static_cast<char>(historico[j]));
-      arvore.inserirContexto(contexto, simbolo);
-    }
-
-    historico.push_back(simbolo);
-    if (static_cast<int>(historico.size()) > KMAX)
-      historico.erase(historico.begin());
   }
 
   encoder.finish();
@@ -427,7 +427,7 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
 }
 
 void Compressor::decode_multi(const string &compressed_filename,
-                              const string &output_dir) {
+                              const string &output_dir, size_t buffer_size) {
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
@@ -457,9 +457,33 @@ void Compressor::decode_multi(const string &compressed_filename,
     total_size += file_size;
   }
 
+  auto make_path = [&](const string &name) -> string {
+    return output_dir.empty() || output_dir == "." ? name
+                                                   : output_dir + "/" + name;
+  };
+
+  // Abre todos os arquivos de saída antecipadamente, criando diretórios
+  vector<ofstream> out_files;
+  out_files.reserve(num_files);
+  for (uint32_t i = 0; i < num_files; i++)
+    out_files.push_back(ReadData::writeFile(make_path(names[i])));
+
   BitInputStream bit_input(input_file);
   ArithmeticDecoder decoder(32, bit_input);
-  string decoded_message;
+
+  // Buffer de escrita: enchido símbolo a símbolo, esvaziado quando cheio ou
+  // ao cruzar a fronteira de arquivo
+  vector<char> write_buf;
+  write_buf.reserve(buffer_size);
+  uint32_t cur = 0;        // índice do arquivo de saída atual
+  uint32_t written = 0;    // bytes escritos no arquivo atual
+
+  auto flush_buf = [&]() {
+    if (!write_buf.empty()) {
+      out_files[cur].write(write_buf.data(), write_buf.size());
+      write_buf.clear();
+    }
+  };
 
   for (uint32_t i = 0; i < total_size; i++) {
     set<unsigned char> simbolosExcluidos;
@@ -523,7 +547,21 @@ void Compressor::decode_multi(const string &compressed_filename,
     }
 
     simbolosVistos.insert(simbolo);
-    decoded_message += static_cast<char>(simbolo);
+
+    write_buf.push_back(static_cast<char>(simbolo));
+    written++;
+
+    bool file_done = (cur < num_files && written >= sizes[cur]);
+    if (file_done || write_buf.size() >= buffer_size) {
+      flush_buf();
+      if (file_done) {
+        out_files[cur].close();
+        cout << "Extraido: " << make_path(names[cur]) << " (" << sizes[cur]
+             << " bytes)" << endl;
+        cur++;
+        written = 0;
+      }
+    }
 
     for (int len = 0; len <= maxLen; len++) {
       string contexto;
@@ -538,17 +576,13 @@ void Compressor::decode_multi(const string &compressed_filename,
       historico.erase(historico.begin());
   }
 
-  input_file.close();
-
-  size_t offset = 0;
-  for (uint32_t i = 0; i < num_files; i++) {
-    string out_path = output_dir.empty() || output_dir == "."
-                          ? names[i]
-                          : output_dir + "/" + names[i];
-    ofstream out(out_path, ios::binary);
-    out.write(decoded_message.c_str() + offset, sizes[i]);
-    out.close();
-    cout << "Extraido: " << out_path << " (" << sizes[i] << " bytes)" << endl;
-    offset += sizes[i];
+  // Garante flush do que sobrou no buffer
+  if (!write_buf.empty() && cur < num_files) {
+    flush_buf();
+    out_files[cur].close();
+    cout << "Extraido: " << make_path(names[cur]) << " (" << sizes[cur]
+         << " bytes)" << endl;
   }
+
+  input_file.close();
 }
