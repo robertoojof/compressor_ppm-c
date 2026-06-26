@@ -49,7 +49,7 @@ public:
       }
 
       // Valida a quantidade de argumentos baseada no contrato da interface
-      if (args.size() != cmd->getExpectedArgCount()) {
+      if (args.size() < cmd->getExpectedArgCount()) {
         cerr << "Erro: Numero incorreto de argumentos para o comando '"
              << commandName << "'.\n"
              << "Uso esperado: " << cmd->getHelp() << "\n";

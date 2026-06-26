@@ -10,23 +10,23 @@ class DecodeCommand : public ICommand {
 public:
   void execute(const vector<string> &args) override {
     string compressed = args[0];
-    string output = args[1];
+    string output_dir = args.size() > 1 ? args[1] : ".";
     cout << "Descomprimindo: " << compressed << "..." << endl;
 
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    compressor.decode_pure(compressed, output);
+    compressor.decode_multi(compressed, output_dir);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
-    cout << "Concluido em " << elapsed << "s -> " << output << endl;
+    cout << "Concluido em " << elapsed << "s" << endl;
   }
 
   size_t getExpectedArgCount() const override {
-    return 2;
+    return 1;
   }
 
   string getHelp() const override {
-    return "-decode <arquivo_comprimido> <saida> : Descomprime o arquivo.";
+    return "-decode <arquivo_comprimido> [diretorio_saida] : Descomprime e extrai os arquivos.";
   }
 };
