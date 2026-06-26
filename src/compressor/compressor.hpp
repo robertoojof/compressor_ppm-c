@@ -4,6 +4,7 @@
 #include "../ppm-c/ppm/PatriciaTree.hpp"
 
 #include <fstream>
+#include <iostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -12,9 +13,14 @@ using namespace std;
 
 class Compressor {
 public:
-  void encoder_pure(std::string &message,
-                    const std::string &compressed_filename, int kmax);
-  void encode();
+  // Codigo morto
+  void encoder_pure(string &message, const string &compressed_filename,
+                    const int KMAX);
   void decode_pure(const string &compressed_filename,
-                    const string &output_filename);
+                   const string &output_filename);
+
+  // Funções utilizadas ~ Funcionam com multiplos arquivos
+  void encoder_multi(const vector<pair<string, string>> &files, const int KMAX);
+  void decode_multi(const string &compressed_filename,
+                    const string &output_dir);
 };
