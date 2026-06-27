@@ -13,6 +13,7 @@ public:
     ReadData data;
     vector<pair<string, string>> files;
     int KMAX{0};
+    string output_filename = "output";
 
     vector<string> fileArgs;
     for (size_t i = 0; i < args.size(); ++i) {
@@ -20,6 +21,10 @@ public:
         if (i + 1 >= args.size())
           throw runtime_error("Faltou o valor de K apos -k");
         KMAX = stoi(args[++i]);
+      } else if (args[i] == "-o" || args[i] == "-O") {
+        if (i + 1 >= args.size())
+          throw runtime_error("Faltou o valor de <nome_saida> apos -o");
+        output_filename = args[++i];
       } else {
         fileArgs.push_back(args[i]);
       }
@@ -38,17 +43,17 @@ public:
 
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    compressor.encoder_multi(files, KMAX);
+    compressor.encoder_multi(files, KMAX, output_filename);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
-    cout << "Concluido em " << elapsed << "s -> output.bin" << endl;
+    cout << "Concluido em " << elapsed << "s -> " << output_filename << ".bin" << endl;
   }
 
   size_t getExpectedArgCount() const override { return 1; }
 
   string getHelp() const override {
-    return "-encode [-k <valor>] <arquivo1> [arquivo2 ...] : Comprime os "
-           "arquivos especificados em output.bin.";
+    return "-encode [-k <valor>] [-o <nome_saida>] <arquivo1> [arquivo2 ...] : Comprime os "
+           "arquivos especificados em <nome_saida>.bin.";
   }
 };

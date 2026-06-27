@@ -1,8 +1,10 @@
 #pragma once
 
+#include "../fileIO/ReadData.hpp"
 #include "../ppm-c/arithmetic/ArithmeticCoder.hpp"
 #include "../ppm-c/ppm/PatriciaTree.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -14,14 +16,14 @@ using namespace std;
 class Compressor {
 public:
   // Codigo morto
-  void encoder_pure(string &message, const string &compressed_filename,
-                    const int KMAX);
-  void decode_pure(const string &compressed_filename,
-                   const string &output_filename);
+  // void encoder_pure(string &message, const string &compressed_filename,
+  //                   const int KMAX);
+  // void decode_pure(const string &compressed_filename,
+  //                  const string &output_filename);
 
   // Funções utilizadas ~ Funcionam com multiplos arquivos
   void encoder_multi(const vector<pair<string, string>> &files, const int KMAX,
-                     size_t buffer_size = 8192);
+                     const string &output_filename = "output");
   void decode_multi(const string &compressed_filename,
-                    const string &output_dir, size_t buffer_size = 8192);
+                    const string &output_dir);
 };
