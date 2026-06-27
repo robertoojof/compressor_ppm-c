@@ -2,9 +2,13 @@ silesia/
 obj/
 resultados/
 graficos/
+for_test/
+saida/
 
 .vscode/
 
+*.old
+*.old.*
 *main
 *.o
 *.obj
