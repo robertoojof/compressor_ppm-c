@@ -24,4 +24,5 @@ public:
   void liberarMemoria(PatriciaNode *no);
   void inserirContexto(const string &contexto, unsigned char simbolo);
   void podar(set<unsigned char> &simbolosVistos);
+  void resetar();
 };

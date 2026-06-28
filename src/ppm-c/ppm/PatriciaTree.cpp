@@ -133,6 +133,17 @@ void PatriciaTree::podar(set<unsigned char> &simbolosVistos) {
     simbolosVistos.erase(s);
 }
 
+// Zera completamente a árvore: apaga todos os nós filhos e reinicia as
+// frequências da raiz. Após isso o modelo está como se nunca tivesse visto nada.
+void PatriciaTree::resetar() {
+  for (auto &[key, filho] : raiz->filhos)
+    liberarMemoria(filho);
+  raiz->filhos.clear();
+  fill(raiz->freq.begin(), raiz->freq.end(), 0);
+  raiz->distintos = 0;
+  numNos = 0;
+}
+
 PatriciaNode *PatriciaTree::buscarContexto(const string &contexto) const {
   PatriciaNode *atual = raiz;
   string restante = contexto;
