@@ -1,4 +1,5 @@
 #include "compressor.hpp"
+#include <iomanip>
 
 using namespace std;
 namespace fs = filesystem;
@@ -6,11 +7,26 @@ namespace fs = filesystem;
 double Compressor::encoder_multi(const vector<pair<string, string>> &files,
                                  const int KMAX, const string &output_filename,
                                  const int j_window, const int threshold,
-                                 const int mode) {
+                                 const int mode, const string &log_filename) {
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
-  vector<uint32_t> event_positions; // posições onde poda ou reset foram aplicados
+  vector<uint32_t> event_positions;
+
+  static const int LOG_INTERVAL = 1000; // amostrar a cada 1000 símbolos
+
+  // Arquivo de log progressivo (posicao, bits_por_simbolo, evento)
+  ofstream log_file;
+  if (!log_filename.empty()) {
+    log_file.open(log_filename);
+    // Cabeçalho: indica o modo usado nesta compressão
+    string modo_str = (mode == 1) ? "poda" : (mode == 2) ? "reset" : "nenhum";
+    log_file << "# modo: " << modo_str;
+    if (mode != 0)
+      log_file << " | j: " << j_window << " | threshold: " << threshold << "%";
+    log_file << "\n";
+    log_file << "posicao,bits_por_simbolo,evento\n";
+  } // posições onde poda ou reset foram aplicados
 
   string nomeArquivoSaida = output_filename + ".bin";
   ofstream output_file(nomeArquivoSaida, ios::binary);
@@ -122,7 +138,9 @@ double Compressor::encoder_multi(const vector<pair<string, string>> &files,
 
       symbol_counter++;
 
-      // Verificação de janela: compara comprimento médio atual com o anterior
+      // Verificação de janela: compara comprimento médio atual com o anterior.
+      // O evento é detectado ANTES do log para que a linha já saia marcada.
+      string cur_event = "";
       if (j_window > 0 && symbol_counter % static_cast<uint32_t>(j_window) == 0) {
         long long bits_now = bit_output.getTotalBitsWritten();
         long long curr_window_bits = bits_now - window_start_bits;
@@ -131,16 +149,13 @@ double Compressor::encoder_multi(const vector<pair<string, string>> &files,
           // Degrada se curr/prev > (100 + threshold)/100
           if (curr_window_bits * 100 > prev_window_bits * (100 + threshold)) {
             event_positions.push_back(symbol_counter);
+            cur_event = (mode == 1) ? "poda" : "reset";
 
             if (mode == 1) {
               // ---- PODA (halving): divide todas as frequências por 2 ----
-              // Contextos raros perdem evidência; os frequentes se mantêm.
-              // simbolosVistos é atualizado para refletir o que ainda sobrou.
               arvore.podar(simbolosVistos);
             } else if (mode == 2) {
               // ---- RESET: apaga toda a árvore e reinicia o modelo do zero ----
-              // A codificação continua no mesmo stream aritmético,
-              // mas o modelo estatístico recomeça como se o arquivo começasse aqui.
               arvore.resetar();
               simbolosVistos.clear();
               historico.clear();
@@ -152,10 +167,24 @@ double Compressor::encoder_multi(const vector<pair<string, string>> &files,
         window_start_bits = bits_now;
         window_count++;
       }
+
+      // Log progressivo: a cada LOG_INTERVAL símbolos OU sempre que há evento
+      if (log_file.is_open()) {
+        bool is_event = !cur_event.empty();
+        if (symbol_counter % static_cast<uint32_t>(LOG_INTERVAL) == 0 || is_event) {
+          double bps = static_cast<double>(bit_output.getTotalBitsWritten()) / symbol_counter;
+          log_file << symbol_counter << ","
+                   << fixed << setprecision(6) << bps << ","
+                   << cur_event << "\n";
+        }
+      }
     }
   }
 
   encoder.finish();
+
+  if (log_file.is_open())
+    log_file.close();
 
   // Comprimento médio final: bits da codificação aritmética / total de símbolos
   double bits_per_symbol = symbol_counter > 0
