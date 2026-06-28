@@ -12,12 +12,16 @@ private:
   map<string, unique_ptr<ICommand>> commands;
   string programName;
 
-  void printHelp() const {
-    cerr << "Uso incorreto ou comando invalido.\n\n"
-         << "Comandos disponiveis:\n";
-    for (const auto &pair : commands) {
-      cerr << "  " << pair.second->getHelp() << "\n";
-    }
+  void printHelp(ostream &out, bool isError = false) const {
+    if (isError)
+      out << "Uso incorreto ou comando invalido.\n\n";
+
+    out << "PPM-C Compressor  —  codificacao aritmetica com modelo PPM\n"
+        << "Uso: " << programName << " <comando> [opcoes] [arquivos]\n\n"
+        << "Comandos disponíveis:\n\n";
+
+    for (const auto &[name, cmd] : commands)
+      out << cmd->getHelp() << "\n\n";
   }
 
 public:
@@ -31,11 +35,17 @@ public:
 
   void run(int argc, char *argv[]) {
     if (argc < 2) {
-      printHelp();
+      printHelp(cerr, /*isError=*/true);
       return;
     }
 
     string commandName = argv[1];
+
+    if (commandName == "-h" || commandName == "--help") {
+      printHelp(cout);
+      return;
+    }
+
     auto it = commands.find(commandName);
 
     // Se o comando existe no mapa
@@ -60,7 +70,7 @@ public:
       cmd->execute(args);
     } else {
       cerr << "Comando desconhecido: " << commandName << "\n";
-      printHelp();
+      printHelp(cerr, /*isError=*/true);
     }
   }
 };

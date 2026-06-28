@@ -27,6 +27,9 @@ public:
   }
 
   string getHelp() const override {
-    return "-decode <arquivo_comprimido> [diretorio_saida] : Descomprime e extrai os arquivos.";
+    return "-decode <arquivo_comprimido> [diretorio_saida]\n"
+           "  Descomprime um .bin gerado pelo -encode e extrai os arquivos originais.\n"
+           "  <arquivo_comprimido>  caminho para o arquivo .bin\n"
+           "  [diretorio_saida]     onde extrair (padrao: diretorio atual)";
   }
 };
