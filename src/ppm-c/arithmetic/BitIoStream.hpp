@@ -74,24 +74,30 @@
      
      // Number of accumulated bits in the current byte, always between 0 and 7 (inclusive).
      private: int numBitsFilled;
-     
-     
+
+     // Total number of bits written to this stream.
+     private: long long numBitsWritten;
+
+
      /*---- Constructor ----*/
-     
+
      // Constructs a bit output stream based on the given byte output stream.
      public: explicit BitOutputStream(std::ostream &out);
-     
-     
+
+
      /*---- Methods ----*/
-     
+
      // Writes a bit to the stream. The given bit must be 0 or 1.
      public: void write(int b);
-     
-     
+
+
      // Writes the minimum number of "0" bits (between 0 and 7 of them) as padding to
      // reach the next byte boundary. Most applications will require the bits in the last
      // partial byte to be written before the underlying stream is closed. Note that this
      // method merely writes data to the underlying output stream but does not close it.
      public: void finish();
-     
+
+     // Returns the total number of bits written so far.
+     public: long long getTotalBitsWritten() const;
+
  };

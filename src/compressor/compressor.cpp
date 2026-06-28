@@ -4,37 +4,44 @@ using namespace std;
 namespace fs = filesystem;
 
 void Compressor::encoder_multi(const vector<pair<string, string>> &files,
-                               const int KMAX, const string &output_filename) {
+                               const int KMAX, const string &output_filename,
+                               const int j_window, const int p_threshold) {
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
+  vector<uint32_t> prune_positions;
 
   string nomeArquivoSaida = output_filename + ".bin";
-
   ofstream output_file(nomeArquivoSaida, ios::binary);
 
-  // Cabeçalho: K (1 byte) + num_files (4 bytes)
+  // Cabeçalho: K (1 byte) + j_window (4 bytes) + p_threshold (1 byte) + num_files (4 bytes)
   uint8_t k_byte = static_cast<uint8_t>(KMAX);
   output_file.write(reinterpret_cast<const char *>(&k_byte), sizeof(uint8_t));
+  uint32_t j_val = static_cast<uint32_t>(j_window);
+  output_file.write(reinterpret_cast<const char *>(&j_val), sizeof(uint32_t));
+  uint8_t p_val = static_cast<uint8_t>(p_threshold);
+  output_file.write(reinterpret_cast<const char *>(&p_val), sizeof(uint8_t));
   uint32_t num_files = static_cast<uint32_t>(files.size());
-  output_file.write(reinterpret_cast<const char *>(&num_files),
-                    sizeof(uint32_t));
+  output_file.write(reinterpret_cast<const char *>(&num_files), sizeof(uint32_t));
 
   // Metadados por arquivo: name_len (2 bytes) + name + size (4 bytes)
   for (const auto &f : files) {
     uint16_t name_len = static_cast<uint16_t>(f.first.size());
-    output_file.write(reinterpret_cast<const char *>(&name_len),
-                      sizeof(uint16_t));
+    output_file.write(reinterpret_cast<const char *>(&name_len), sizeof(uint16_t));
     output_file.write(f.first.c_str(), name_len);
     uint32_t file_size = static_cast<uint32_t>(f.second.size());
-    output_file.write(reinterpret_cast<const char *>(&file_size),
-                      sizeof(uint32_t));
+    output_file.write(reinterpret_cast<const char *>(&file_size), sizeof(uint32_t));
   }
 
   BitOutputStream bit_output(output_file);
   ArithmeticEncoder encoder(32, bit_output);
 
-  // Itera sobre os arquivos diretamente, sem concatenar em uma string única
+  // Rastreamento de janelas para detecção de degradação
+  long long prev_window_bits = 0;
+  long long window_start_bits = 0;
+  int window_count = 0;
+  uint32_t symbol_counter = 0;
+
   for (const auto &f : files) {
     for (size_t fi = 0; fi < f.second.size(); fi++) {
       unsigned char simbolo = static_cast<unsigned char>(f.second[fi]);
@@ -52,7 +59,7 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
 
         PatriciaNode *no = arvore.buscarContexto(contexto);
 
-        if (no != nullptr) {
+        if (no != nullptr && no->distintos > 0) {
           vector<uint32_t> freqs;
           if (simbolosVistos.empty()) {
             freqs.resize(ALFABETO, 0);
@@ -108,10 +115,37 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
       historico.push_back(simbolo);
       if (static_cast<int>(historico.size()) > KMAX)
         historico.erase(historico.begin());
+
+      symbol_counter++;
+
+      // Verificação de janela: compara janela atual com a anterior
+      if (j_window > 0 && symbol_counter % static_cast<uint32_t>(j_window) == 0) {
+        long long bits_now = bit_output.getTotalBitsWritten();
+        long long curr_window_bits = bits_now - window_start_bits;
+
+        if (window_count >= 1 && prev_window_bits > 0 && p_threshold > 0) {
+          // curr/prev > (100 + p) / 100  →  curr * 100 > prev * (100 + p)
+          if (curr_window_bits * 100 > prev_window_bits * (100 + p_threshold)) {
+            prune_positions.push_back(symbol_counter);
+            arvore.podar(simbolosVistos);
+          }
+        }
+
+        prev_window_bits = curr_window_bits;
+        window_start_bits = bits_now;
+        window_count++;
+      }
     }
   }
 
   encoder.finish();
+
+  // Footer: posições de poda + contagem (últimos 4 bytes)
+  for (uint32_t pos : prune_positions)
+    output_file.write(reinterpret_cast<const char *>(&pos), sizeof(uint32_t));
+  uint32_t num_prune = static_cast<uint32_t>(prune_positions.size());
+  output_file.write(reinterpret_cast<const char *>(&num_prune), sizeof(uint32_t));
+
   output_file.close();
 }
 
@@ -123,9 +157,34 @@ void Compressor::decode_multi(const string &compressed_filename,
 
   ifstream input_file(compressed_filename, ios::binary);
 
+  // Lê o footer primeiro: últimos 4 bytes = num_prune_events
+  set<uint32_t> prune_set;
+  input_file.seekg(-static_cast<streamoff>(sizeof(uint32_t)), ios::end);
+  uint32_t num_prune_events;
+  input_file.read(reinterpret_cast<char *>(&num_prune_events), sizeof(uint32_t));
+  if (num_prune_events > 0) {
+    input_file.seekg(
+        -static_cast<streamoff>((num_prune_events + 1) * sizeof(uint32_t)),
+        ios::end);
+    for (uint32_t e = 0; e < num_prune_events; e++) {
+      uint32_t pos;
+      input_file.read(reinterpret_cast<char *>(&pos), sizeof(uint32_t));
+      prune_set.insert(pos);
+    }
+  }
+
+  // Volta ao início para ler o cabeçalho normalmente
+  input_file.seekg(0, ios::beg);
+
   uint8_t k_byte;
   input_file.read(reinterpret_cast<char *>(&k_byte), sizeof(uint8_t));
   int kmax = static_cast<int>(k_byte);
+
+  // j_window e p_threshold ficam no cabeçalho mas não são usados pelo decoder
+  uint32_t j_dummy;
+  input_file.read(reinterpret_cast<char *>(&j_dummy), sizeof(uint32_t));
+  uint8_t p_dummy;
+  input_file.read(reinterpret_cast<char *>(&p_dummy), sizeof(uint8_t));
 
   uint32_t num_files;
   input_file.read(reinterpret_cast<char *>(&num_files), sizeof(uint32_t));
@@ -146,7 +205,6 @@ void Compressor::decode_multi(const string &compressed_filename,
     total_size += file_size;
   }
 
-  // monta um caminho de arquivo combinando output_dir com name
   auto make_path = [&](const string &name) -> string {
     return output_dir.empty() || output_dir == "." ? name
                                                    : output_dir + "/" + name;
@@ -163,6 +221,12 @@ void Compressor::decode_multi(const string &compressed_filename,
   ofstream output_file(make_path(names[0]), ios::binary);
 
   for (uint32_t i = 0; i < total_size; i++) {
+    // Aplica poda se o encoder a aplicou nesta posição
+    if (!prune_set.empty() && prune_set.count(i)) {
+      arvore.podar(simbolosVistos);
+      prune_set.erase(i);
+    }
+
     set<unsigned char> simbolosExcluidos;
     int hsize = static_cast<int>(historico.size());
     int maxLen = min(kmax, hsize);
@@ -178,7 +242,7 @@ void Compressor::decode_multi(const string &compressed_filename,
 
       PatriciaNode *no = arvore.buscarContexto(contexto);
 
-      if (no != nullptr) {
+      if (no != nullptr && no->distintos > 0) {
         vector<uint32_t> freqs;
         if (simbolosVistos.empty()) {
           freqs.resize(ALFABETO, 0);

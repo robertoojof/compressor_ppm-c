@@ -61,12 +61,14 @@
  BitOutputStream::BitOutputStream(std::ostream &out) :
      output(out),
      currentByte(0),
-     numBitsFilled(0) {}
+     numBitsFilled(0),
+     numBitsWritten(0) {}
  
  
  void BitOutputStream::write(int b) {
     if (b != 0 && b != 1)
         throw std::domain_error("Argument must be 0 or 1");
+    numBitsWritten++;
 
     // bit atual
     // std::cout << "Bit: " << b << " | ";
@@ -92,4 +94,9 @@
  void BitOutputStream::finish() {
      while (numBitsFilled != 0)
          write(0);
+ }
+
+
+ long long BitOutputStream::getTotalBitsWritten() const {
+     return numBitsWritten;
  }
