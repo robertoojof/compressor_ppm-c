@@ -5,22 +5,26 @@ namespace fs = filesystem;
 
 void Compressor::encoder_multi(const vector<pair<string, string>> &files,
                                const int KMAX, const string &output_filename,
-                               const int j_window, const int p_threshold) {
+                               const int j_window, const int threshold,
+                               const int mode) {
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
-  vector<uint32_t> prune_positions;
+  vector<uint32_t> event_positions; // posições onde poda ou reset foram aplicados
 
   string nomeArquivoSaida = output_filename + ".bin";
   ofstream output_file(nomeArquivoSaida, ios::binary);
 
-  // Cabeçalho: K (1 byte) + j_window (4 bytes) + p_threshold (1 byte) + num_files (4 bytes)
+  // Cabeçalho: K (1b) + j_window (4b) + threshold (1b) + mode (1b) + num_files (4b)
+  // mode: 0=nenhum  1=poda  2=reset
   uint8_t k_byte = static_cast<uint8_t>(KMAX);
   output_file.write(reinterpret_cast<const char *>(&k_byte), sizeof(uint8_t));
   uint32_t j_val = static_cast<uint32_t>(j_window);
   output_file.write(reinterpret_cast<const char *>(&j_val), sizeof(uint32_t));
-  uint8_t p_val = static_cast<uint8_t>(p_threshold);
-  output_file.write(reinterpret_cast<const char *>(&p_val), sizeof(uint8_t));
+  uint8_t t_val = static_cast<uint8_t>(threshold);
+  output_file.write(reinterpret_cast<const char *>(&t_val), sizeof(uint8_t));
+  uint8_t m_val = static_cast<uint8_t>(mode);
+  output_file.write(reinterpret_cast<const char *>(&m_val), sizeof(uint8_t));
   uint32_t num_files = static_cast<uint32_t>(files.size());
   output_file.write(reinterpret_cast<const char *>(&num_files), sizeof(uint32_t));
 
@@ -118,16 +122,29 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
 
       symbol_counter++;
 
-      // Verificação de janela: compara janela atual com a anterior
+      // Verificação de janela: compara comprimento médio atual com o anterior
       if (j_window > 0 && symbol_counter % static_cast<uint32_t>(j_window) == 0) {
         long long bits_now = bit_output.getTotalBitsWritten();
         long long curr_window_bits = bits_now - window_start_bits;
 
-        if (window_count >= 1 && prev_window_bits > 0 && p_threshold > 0) {
-          // curr/prev > (100 + p) / 100  →  curr * 100 > prev * (100 + p)
-          if (curr_window_bits * 100 > prev_window_bits * (100 + p_threshold)) {
-            prune_positions.push_back(symbol_counter);
-            arvore.podar(simbolosVistos);
+        if (window_count >= 1 && prev_window_bits > 0 && threshold > 0 && mode != 0) {
+          // Degrada se curr/prev > (100 + threshold)/100
+          if (curr_window_bits * 100 > prev_window_bits * (100 + threshold)) {
+            event_positions.push_back(symbol_counter);
+
+            if (mode == 1) {
+              // ---- PODA (halving): divide todas as frequências por 2 ----
+              // Contextos raros perdem evidência; os frequentes se mantêm.
+              // simbolosVistos é atualizado para refletir o que ainda sobrou.
+              arvore.podar(simbolosVistos);
+            } else if (mode == 2) {
+              // ---- RESET: apaga toda a árvore e reinicia o modelo do zero ----
+              // A codificação continua no mesmo stream aritmético,
+              // mas o modelo estatístico recomeça como se o arquivo começasse aqui.
+              arvore.resetar();
+              simbolosVistos.clear();
+              historico.clear();
+            }
           }
         }
 
@@ -140,11 +157,11 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
 
   encoder.finish();
 
-  // Footer: posições de poda + contagem (últimos 4 bytes)
-  for (uint32_t pos : prune_positions)
+  // Footer: posições dos eventos (poda ou reset) + contagem (últimos 4 bytes)
+  for (uint32_t pos : event_positions)
     output_file.write(reinterpret_cast<const char *>(&pos), sizeof(uint32_t));
-  uint32_t num_prune = static_cast<uint32_t>(prune_positions.size());
-  output_file.write(reinterpret_cast<const char *>(&num_prune), sizeof(uint32_t));
+  uint32_t num_events = static_cast<uint32_t>(event_positions.size());
+  output_file.write(reinterpret_cast<const char *>(&num_events), sizeof(uint32_t));
 
   output_file.close();
 }
@@ -180,11 +197,16 @@ void Compressor::decode_multi(const string &compressed_filename,
   input_file.read(reinterpret_cast<char *>(&k_byte), sizeof(uint8_t));
   int kmax = static_cast<int>(k_byte);
 
-  // j_window e p_threshold ficam no cabeçalho mas não são usados pelo decoder
+  // j_window e threshold não são usados pelo decoder (só pelo encoder para detectar degradação)
   uint32_t j_dummy;
   input_file.read(reinterpret_cast<char *>(&j_dummy), sizeof(uint32_t));
-  uint8_t p_dummy;
-  input_file.read(reinterpret_cast<char *>(&p_dummy), sizeof(uint8_t));
+  uint8_t t_dummy;
+  input_file.read(reinterpret_cast<char *>(&t_dummy), sizeof(uint8_t));
+
+  // mode: 0=nenhum  1=poda  2=reset — o decoder precisa saber qual operação aplicar
+  uint8_t mode_byte;
+  input_file.read(reinterpret_cast<char *>(&mode_byte), sizeof(uint8_t));
+  int mode = static_cast<int>(mode_byte);
 
   uint32_t num_files;
   input_file.read(reinterpret_cast<char *>(&num_files), sizeof(uint32_t));
@@ -221,9 +243,17 @@ void Compressor::decode_multi(const string &compressed_filename,
   ofstream output_file(make_path(names[0]), ios::binary);
 
   for (uint32_t i = 0; i < total_size; i++) {
-    // Aplica poda se o encoder a aplicou nesta posição
+    // Aplica poda ou reset se o encoder o fez nesta posição (lido do footer)
     if (!prune_set.empty() && prune_set.count(i)) {
-      arvore.podar(simbolosVistos);
+      if (mode == 1) {
+        // ---- PODA (halving): espelha exatamente o que o encoder fez ----
+        arvore.podar(simbolosVistos);
+      } else if (mode == 2) {
+        // ---- RESET: zera o modelo e retoma do zero, igual ao encoder ----
+        arvore.resetar();
+        simbolosVistos.clear();
+        historico.clear();
+      }
       prune_set.erase(i);
     }
 
