@@ -3,6 +3,7 @@
 #include "../fileIO/ReadData.hpp"
 #include "ICommand.hpp"
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 
 using namespace std;
@@ -67,13 +68,20 @@ public:
       files.push_back({name, content});
     }
 
+    size_t total_bytes = 0;
+    for (const auto &f : files) total_bytes += f.second.size();
+
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    compressor.encoder_multi(files, KMAX, output_filename, j_window, threshold, mode);
+    double bps = compressor.encoder_multi(files, KMAX, output_filename, j_window, threshold, mode);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
-    cout << "Concluido em " << elapsed << "s -> " << output_filename << ".bin" << endl;
+    cout << "Concluido em " << elapsed << "s -> " << output_filename << ".bin\n"
+         << "Bits/simbolo: " << fixed << setprecision(4) << bps
+         << "  |  Razao: 1:" << setprecision(2) << (8.0 / bps)
+         << "  |  " << total_bytes << " bytes -> "
+         << static_cast<size_t>(total_bytes * bps / 8) << " bytes (aprox)" << endl;
   }
 
   size_t getExpectedArgCount() const override { return 1; }

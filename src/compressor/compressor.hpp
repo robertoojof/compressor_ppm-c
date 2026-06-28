@@ -23,10 +23,11 @@ public:
 
   // Funções utilizadas ~ Funcionam com multiplos arquivos
   // mode: 0 = nenhum, 1 = poda (halving), 2 = reset completo
-  void encoder_multi(const vector<pair<string, string>> &files, const int KMAX,
-                     const string &output_filename = "output",
-                     const int j_window = 0, const int threshold = 0,
-                     const int mode = 0);
+  // retorna bits/símbolo (comprimento médio final)
+  double encoder_multi(const vector<pair<string, string>> &files, const int KMAX,
+                       const string &output_filename = "output",
+                       const int j_window = 0, const int threshold = 0,
+                       const int mode = 0);
   void decode_multi(const string &compressed_filename,
                     const string &output_dir);
 };

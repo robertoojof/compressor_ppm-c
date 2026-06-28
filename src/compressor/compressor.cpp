@@ -3,10 +3,10 @@
 using namespace std;
 namespace fs = filesystem;
 
-void Compressor::encoder_multi(const vector<pair<string, string>> &files,
-                               const int KMAX, const string &output_filename,
-                               const int j_window, const int threshold,
-                               const int mode) {
+double Compressor::encoder_multi(const vector<pair<string, string>> &files,
+                                 const int KMAX, const string &output_filename,
+                                 const int j_window, const int threshold,
+                                 const int mode) {
   PatriciaTree arvore;
   vector<unsigned char> historico;
   set<unsigned char> simbolosVistos;
@@ -157,6 +157,11 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
 
   encoder.finish();
 
+  // Comprimento médio final: bits da codificação aritmética / total de símbolos
+  double bits_per_symbol = symbol_counter > 0
+      ? static_cast<double>(bit_output.getTotalBitsWritten()) / symbol_counter
+      : 0.0;
+
   // Footer: posições dos eventos (poda ou reset) + contagem (últimos 4 bytes)
   for (uint32_t pos : event_positions)
     output_file.write(reinterpret_cast<const char *>(&pos), sizeof(uint32_t));
@@ -164,6 +169,7 @@ void Compressor::encoder_multi(const vector<pair<string, string>> &files,
   output_file.write(reinterpret_cast<const char *>(&num_events), sizeof(uint32_t));
 
   output_file.close();
+  return bits_per_symbol;
 }
 
 void Compressor::decode_multi(const string &compressed_filename,
