@@ -23,7 +23,8 @@ public:
 
   // Funções utilizadas ~ Funcionam com multiplos arquivos
   void encoder_multi(const vector<pair<string, string>> &files, const int KMAX,
-                     const string &output_filename = "output");
+                     const string &output_filename = "output",
+                     const int j_window = 0, const int p_threshold = 0);
   void decode_multi(const string &compressed_filename,
                     const string &output_dir);
 };

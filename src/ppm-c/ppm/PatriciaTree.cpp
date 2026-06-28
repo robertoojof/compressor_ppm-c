@@ -79,6 +79,60 @@ void PatriciaTree::inserirContexto(const string &contexto,
   atual->freq[simbolo]++;
 }
 
+// Divide todas as frequências do nó por 2 (halving).
+// Remove filhos que ficam vazios. Retorna true se o próprio nó ficou vazio.
+bool PatriciaTree::podarNo(PatriciaNode *no) {
+  vector<unsigned char> remover;
+  for (auto &[key, filho] : no->filhos) {
+    if (podarNo(filho))
+      remover.push_back(key);
+  }
+  for (unsigned char key : remover) {
+    delete no->filhos[key];
+    no->filhos.erase(key);
+    numNos--;
+  }
+
+  no->distintos = 0;
+  for (int s = 0; s < ALFABETO; s++) {
+    no->freq[s] /= 2;
+    if (no->freq[s] > 0)
+      no->distintos++;
+  }
+
+  return (no->distintos == 0 && no->filhos.empty());
+}
+
+// Aplica halving em toda a árvore e atualiza simbolosVistos:
+// remove símbolos cujo count no contexto de ordem-0 (raiz) caiu para 0.
+void PatriciaTree::podar(set<unsigned char> &simbolosVistos) {
+  vector<unsigned char> remover;
+  for (auto &[key, filho] : raiz->filhos) {
+    if (podarNo(filho))
+      remover.push_back(key);
+  }
+  for (unsigned char key : remover) {
+    delete raiz->filhos[key];
+    raiz->filhos.erase(key);
+    numNos--;
+  }
+
+  raiz->distintos = 0;
+  for (int s = 0; s < ALFABETO; s++) {
+    raiz->freq[s] /= 2;
+    if (raiz->freq[s] > 0)
+      raiz->distintos++;
+  }
+
+  vector<unsigned char> limpar;
+  for (unsigned char s : simbolosVistos) {
+    if (raiz->freq[s] == 0)
+      limpar.push_back(s);
+  }
+  for (unsigned char s : limpar)
+    simbolosVistos.erase(s);
+}
+
 PatriciaNode *PatriciaTree::buscarContexto(const string &contexto) const {
   PatriciaNode *atual = raiz;
   string restante = contexto;

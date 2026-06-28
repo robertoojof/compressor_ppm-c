@@ -15,6 +15,9 @@ public:
     int KMAX{0};
     string output_filename = "output";
 
+    int j_window = 0;
+    int p_threshold = 0;
+
     vector<string> fileArgs;
     for (size_t i = 0; i < args.size(); ++i) {
       if (args[i] == "-k" || args[i] == "-K") {
@@ -25,6 +28,14 @@ public:
         if (i + 1 >= args.size())
           throw runtime_error("Faltou o valor de <nome_saida> apos -o");
         output_filename = args[++i];
+      } else if (args[i] == "-j" || args[i] == "-J") {
+        if (i + 1 >= args.size())
+          throw runtime_error("Faltou o valor de <janela> apos -j");
+        j_window = stoi(args[++i]);
+      } else if (args[i] == "-p" || args[i] == "-P") {
+        if (i + 1 >= args.size())
+          throw runtime_error("Faltou o valor de <percentual> apos -p");
+        p_threshold = stoi(args[++i]);
       } else {
         fileArgs.push_back(args[i]);
       }
@@ -43,7 +54,7 @@ public:
 
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    compressor.encoder_multi(files, KMAX, output_filename);
+    compressor.encoder_multi(files, KMAX, output_filename, j_window, p_threshold);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
@@ -53,7 +64,7 @@ public:
   size_t getExpectedArgCount() const override { return 1; }
 
   string getHelp() const override {
-    return "-encode [-k <valor>] [-o <nome_saida>] <arquivo1> [arquivo2 ...] : Comprime os "
-           "arquivos especificados em <nome_saida>.bin.";
+    return "-encode [-k <kmax>] [-o <saida>] [-j <janela>] [-p <percentual>] <arq1> [arq2 ...] : "
+           "Comprime. -j e -p ativam poda por janela (ex: -j 10000 -p 10).";
   }
 };
