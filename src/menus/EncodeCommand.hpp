@@ -17,8 +17,9 @@ public:
     string output_filename = "output";
 
     int j_window = 0;
-    int p_threshold = 0; // ativa poda (halving)
-    int r_threshold = 0; // ativa reset completo
+    int p_threshold = 0;   // ativa poda (halving)
+    int r_threshold = 0;   // ativa reset completo
+    string log_filename;   // vazio = sem log; preenchido por -log
 
     vector<string> fileArgs;
     for (size_t i = 0; i < args.size(); ++i) {
@@ -44,6 +45,13 @@ public:
         if (i + 1 >= args.size())
           throw runtime_error("Faltou o valor de <percentual> apos -r");
         r_threshold = stoi(args[++i]);
+      } else if (args[i] == "-log") {
+        // -log [arquivo]: log progressivo de bits/símbolo
+        // se não vier nome, usa "compression_log.log"
+        if (i + 1 < args.size() && args[i + 1][0] != '-')
+          log_filename = args[++i];
+        else
+          log_filename = "compression_log.log";
       } else {
         fileArgs.push_back(args[i]);
       }
@@ -73,7 +81,7 @@ public:
 
     auto start = chrono::high_resolution_clock::now();
     Compressor compressor;
-    double bps = compressor.encoder_multi(files, KMAX, output_filename, j_window, threshold, mode);
+    double bps = compressor.encoder_multi(files, KMAX, output_filename, j_window, threshold, mode, log_filename);
     auto end = chrono::high_resolution_clock::now();
 
     double elapsed = chrono::duration<double>(end - start).count();
@@ -87,8 +95,9 @@ public:
   size_t getExpectedArgCount() const override { return 1; }
 
   string getHelp() const override {
-    return "-encode [-k <kmax>] [-o <saida>] [-j <janela>] [-p <perc> | -r <perc>] <arq1> ...\n"
+    return "-encode [-k <kmax>] [-o <saida>] [-j <janela>] [-p <perc> | -r <perc>] [-log [arquivo]] <arq1> ...\n"
            "  -p: poda (halving) quando a janela degrada mais de <perc>%\n"
-           "  -r: reset completo nas mesmas condições  (nao use -p e -r juntos)";
+           "  -r: reset completo nas mesmas condições  (nao use -p e -r juntos)\n"
+           "  -log [arquivo]: grava CSV posicao,bits_por_simbolo,evento (padrao: compression_log.log)";
   }
 };
