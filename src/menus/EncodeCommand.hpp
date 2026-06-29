@@ -45,11 +45,11 @@ public:
         if (i + 1 >= args.size())
           throw runtime_error("Faltou o valor de <percentual> apos -r");
         r_threshold = stoi(args[++i]);
-      } else if (args[i] == "-log") {
-        // -log [arquivo]: log progressivo de bits/símbolo
-        // se não vier nome, usa "compression_log.log"
-        if (i + 1 < args.size() && args[i + 1][0] != '-')
-          log_filename = args[++i];
+      } else if (args[i] == "-log" || args[i].rfind("-log=", 0) == 0) {
+        // -log            → usa "compression_log.log"
+        // -log=meu.csv   → usa o nome dado (sem lookahead, ordem não importa)
+        if (args[i].size() > 4 && args[i][4] == '=')
+          log_filename = args[i].substr(5);
         else
           log_filename = "compression_log.log";
       } else {
@@ -95,9 +95,10 @@ public:
   size_t getExpectedArgCount() const override { return 1; }
 
   string getHelp() const override {
-    return "-encode [-k <kmax>] [-o <saida>] [-j <janela>] [-p <perc> | -r <perc>] [-log [arquivo]] <arq1> ...\n"
+    return "-encode [-k <kmax>] [-o <saida>] [-j <janela>] [-p <perc> | -r <perc>] [-log[=arquivo]] <arq1> ...\n"
            "  -p: poda (halving) quando a janela degrada mais de <perc>%\n"
            "  -r: reset completo nas mesmas condições  (nao use -p e -r juntos)\n"
-           "  -log [arquivo]: grava CSV posicao,bits_por_simbolo,evento (padrao: compression_log.log)";
+           "  -log           : grava CSV bits/simbolo em compression_log.log\n"
+           "  -log=meu.csv   : grava no arquivo especificado";
   }
 };
