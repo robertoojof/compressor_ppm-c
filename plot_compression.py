@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Gera gráfico de Comprimento Médio Progressivo a partir de logs do PPM-C.
 
@@ -20,7 +19,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 
-# ─── Parser do CSV ────────────────────────────────────────────────────────────
+# Parser do CSV
 
 def parse_log(filename):
     posicoes, bps_list, eventos = [], [], []
@@ -79,7 +78,7 @@ def parse_log(filename):
     }
 
 
-# ─── Rótulo automático para cada série ────────────────────────────────────────
+# Rótulo automático para cada série
 
 def make_label(data, filename):
     base = os.path.splitext(os.path.basename(filename))[0]
@@ -91,13 +90,13 @@ def make_label(data, filename):
     return f"{base} ({modo})"
 
 
-# ─── Cores ────────────────────────────────────────────────────────────────────
+# Cores
 
-LINE_COLORS  = ["#1f77b4", "#2ca02c", "#9467bd", "#8c564b", "#17becf"]
+LINE_COLORS = ["#1f77b4", "#2ca02c", "#9467bd", "#8c564b", "#17becf"]
 EVENT_COLORS = {"poda": "#ff7f0e", "reset": "#d62728"}
 
 
-# ─── Plot ─────────────────────────────────────────────────────────────────────
+# Plot
 
 def plot(log_files, output=None, title=None):
     fig, ax = plt.subplots(figsize=(13, 6))
@@ -108,14 +107,16 @@ def plot(log_files, output=None, title=None):
         data = parse_log(filename)
 
         if not data["posicoes"]:
-            print(f"Aviso: '{filename}' não tem dados válidos.", file=sys.stderr)
+            print(f"Aviso: '{filename}' não tem dados válidos.",
+                  file=sys.stderr)
             continue
 
         color = LINE_COLORS[idx % len(LINE_COLORS)]
         label = make_label(data, filename)
 
         xs = [p / 1000 for p in data["posicoes"]]
-        ax.plot(xs, data["bps"], color=color, linewidth=1.4, label=label, zorder=3)
+        ax.plot(xs, data["bps"], color=color,
+                linewidth=1.4, label=label, zorder=3)
 
         # Linhas verticais nos eventos de poda/reset
         for pos, tipo in data["eventos"]:
@@ -149,9 +150,6 @@ def plot(log_files, output=None, title=None):
         print(f"Gráfico salvo em: {output}")
     else:
         plt.show()
-
-
-# ─── CLI ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
