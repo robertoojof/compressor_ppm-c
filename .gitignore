@@ -4,6 +4,10 @@ resultados/
 graficos/
 for_test/
 saida/
+tmp/
+dickens_analise/
+silesia_analise/
+dev/
 
 .vscode/
 
